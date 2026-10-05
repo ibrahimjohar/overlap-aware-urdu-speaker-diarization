@@ -1,0 +1,13 @@
+# Core (Steps 1-5, 7-9a, 11-12) - CPU is enough
+google-api-python-client>=2.100
+isodate>=0.6
+requests>=2.31
+yt-dlp            # keep it current: pip install -U yt-dlp   (YouTube changes often)
+soundfile>=0.12
+numpy>=1.24
+# Screening + speaker linking (Steps 6, 9b) - GPU strongly recommended
+torch
+openai-whisper
+inaSpeechSegmenter   # pulls in TensorFlow
+pyannote.audio       # gated models: accept terms on Hugging Face and set HF_TOKEN
+# System packages (not pip): ffmpeg + ffprobe  ->  sudo apt install ffmpeg   (or conda install -c conda-forge ffmpeg)

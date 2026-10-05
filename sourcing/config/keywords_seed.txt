@@ -1,0 +1,39 @@
+# Seed keywords - one per line, lines starting with # are ignored. Expand after the pilot.
+# --- Urdu script
+پوڈکاسٹ
+اردو پوڈکاسٹ
+انٹرویو
+خصوصی انٹرویو
+گفتگو
+خصوصی گفتگو
+مکالمہ
+مباحثہ
+مذاکرہ
+بحث مباحثہ
+ٹاک شو
+پینل ڈسکشن
+گول میز
+تبادلہ خیال
+سوال و جواب
+گپ شپ
+بیٹھک
+نشست
+# --- Roman Urdu
+urdu podcast
+guftagu
+khas guftagu
+mubahisa
+gup shup
+baithak
+sawal jawab
+# --- English
+pakistani podcast
+urdu interview
+urdu talk show
+panel discussion urdu
+roundtable discussion pakistan
+debate urdu
+urdu discussion
+university seminar urdu
+student podcast pakistan
+family vlog urdu

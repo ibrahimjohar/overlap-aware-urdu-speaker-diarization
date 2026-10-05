@@ -1,0 +1,37 @@
+# --- data: never commit audio, databases or corpus folders
+corpus/
+handoff/
+*.wav
+*.webm
+*.m4a
+*.opus
+*.mp3
+*.flac
+*.sqlite
+*.sqlite-journal
+*.npz
+# --- model weights
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.bin
+# --- PDFs only allowed in docs/ (keep other people's papers out: use references.bib)
+*.pdf
+!docs/*.pdf
+!docs/**/*.pdf
+# --- secrets
+.env
+*.key
+# --- python / editors
+.venv/
+venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+# --- internal notes stay local (public repo): folders exist, contents are never pushed
+sourcing/pilot_notes/*
+!sourcing/pilot_notes/README.md
+docs/meetings/*
+!docs/meetings/README.md
