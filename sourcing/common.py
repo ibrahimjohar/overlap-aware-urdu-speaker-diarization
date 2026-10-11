@@ -11,6 +11,9 @@ import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")  # reads the repo-root .env on any OS/terminal
 
 # ---------------------------------------------------------------- paths
 ROOT = Path(os.environ.get("URDU_CORPUS_ROOT", "./corpus")).resolve()
