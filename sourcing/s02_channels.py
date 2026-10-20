@@ -49,8 +49,9 @@ def expand(con, max_videos):
                 n, token = 0, None
                 while n < max_videos:
                     page = yt.playlistItems().list(part="contentDetails", playlistId=uploads,
-                                                   maxResults=50, pageToken=token).execute()
-                    for it in page.get("items", []):
+                                                   maxResults=min(50, max_videos - n),
+                                                   pageToken=token).execute()
+                    for it in page.get("items", [])[:max_videos - n]:
                         con.execute("INSERT OR IGNORE INTO videos(video_id, channel_id, discovered_via,"
                                     " discovered_at) VALUES (?,?,?,?)",
                                     (it["contentDetails"]["videoId"], ch["id"],

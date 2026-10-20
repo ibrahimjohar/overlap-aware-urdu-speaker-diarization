@@ -9,6 +9,10 @@ Allowed values (anything else is rejected on import):
   tier:              A | B | C | X        (see Section 3.8)
   yes/no columns:    yes | no | unsure
   format_type:       podcast | talk_show | panel | interview | debate | vlog_group | classroom | other
+
+Quick reject without the spreadsheet (e.g. a duplicate or English video spotted before download):
+    python s07_triage.py reject VIDEO_ID --reviewer ibrahim --notes "duplicate of AfOVt2t-fGg"
+Rejected videos are never downloaded by s05 and never exported for triage again.
 """
 import argparse
 import csv
@@ -83,6 +87,16 @@ def import_(con, path):
         sys.exit(1)
 
 
+def quick_reject(con, video_id, reviewer, notes):
+    if not con.execute("SELECT 1 FROM videos WHERE video_id=?", (video_id,)).fetchone():
+        raise SystemExit(f"{video_id} is not in the database - check the ID.")
+    con.execute("INSERT INTO triage(video_id, reviewer, reviewed_at, decision, tier, notes)"
+                " VALUES (?,?,?,?,?,?)", (video_id, reviewer, now(), "reject", "X", notes))
+    log_event(con, "video", video_id, "triage:reject", {"notes": notes, "quick": True}, actor=reviewer)
+    con.commit()
+    print(f"{video_id} rejected ({notes})")
+
+
 def main():
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -91,9 +105,18 @@ def main():
     e.add_argument("--out", required=True)
     i = sub.add_parser("import")
     i.add_argument("path")
+    q = sub.add_parser("reject")
+    q.add_argument("video_id")
+    q.add_argument("--reviewer", required=True)
+    q.add_argument("--notes", required=True)
     args = ap.parse_args()
     con = db()
-    export(con, args.top, args.out) if args.cmd == "export" else import_(con, args.path)
+    if args.cmd == "export":
+        export(con, args.top, args.out)
+    elif args.cmd == "import":
+        import_(con, args.path)
+    else:
+        quick_reject(con, args.video_id, args.reviewer, args.notes)
 
 
 if __name__ == "__main__":
