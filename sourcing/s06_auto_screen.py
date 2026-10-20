@@ -176,7 +176,9 @@ def main():
     if args.stage == "probe":
         rows = con.execute("""SELECT d.video_id, d.wav_path, d.duration_s FROM downloads d
                               WHERE d.status='ok' AND d.video_id NOT IN
-                              (SELECT video_id FROM screening WHERE stage='probe') LIMIT ?""",
+                              (SELECT video_id FROM screening WHERE stage='probe')
+                              AND d.video_id NOT IN (SELECT video_id FROM triage WHERE decision='reject')
+                              LIMIT ?""",
                            (args.limit,)).fetchall()
     else:
         rows = con.execute("""SELECT d.video_id, d.wav_path, d.duration_s FROM downloads d

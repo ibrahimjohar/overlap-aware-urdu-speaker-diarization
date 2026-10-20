@@ -8,6 +8,8 @@ For each video this script:
   2. records codec / sample rate / channels / bitrate / duration with ffprobe
   3. writes a 16 kHz, mono, 16-bit PCM WAV working copy with ffmpeg
   4. stores SHA-256 checksums of both files
+  5. checks the audio against everything already downloaded; if the same recording was uploaded
+     twice (same length, matching audio), the new copy is deleted and auto-rejected as a duplicate
 It stops the whole run if YouTube starts asking for sign-in / bot verification.
 Never try to get around such a block; slow down and talk to your supervisor instead.
 
@@ -37,6 +39,8 @@ YTDLP_OPTS = [
     "--progress", "--newline",       # keep the progress bar (--print hides it) as one line per update
     "--continue",                    # resume a .part file left by an interrupted run
 ]
+# YouTube increasingly needs a JavaScript runtime for yt-dlp. Install Deno once (winget install DenoLand.Deno);
+# yt-dlp finds it automatically. Without it you see a "No supported JavaScript runtime" warning.
 BLOCK_SIGNS = ("Sign in to confirm", "not a bot", "HTTP Error 429")
 
 
@@ -92,6 +96,38 @@ def run_ytdlp(cmd):
     return proc.returncode, saved, "\n".join(lines)
 
 
+def _chunk(path, start_s, n_s=10.0):
+    import numpy as np
+    import soundfile as sf
+    data, _ = sf.read(str(path), start=int(start_s * TARGET_SR), frames=int(n_s * TARGET_SR), dtype="float32")
+    return np.asarray(data, dtype="float64")
+
+
+def find_duplicate(con, vid, wav, dur, tol_s=0.05, min_corr=0.99):
+    """Return the video_id of an already-downloaded video with the same audio, else None.
+
+    Cheap first filter: same duration (within tol_s). Then compare three 10-second chunks;
+    a near-perfect correlation in all three means the same recording uploaded twice."""
+    import numpy as np
+    cands = con.execute("""SELECT video_id, wav_path FROM downloads WHERE status='ok' AND video_id != ?
+                           AND ABS(duration_s - ?) <= ?""", (vid, dur, tol_s)).fetchall()
+    probes = [t for t in (dur * 0.1, dur * 0.5, dur * 0.85) if t + 10 < dur] or [0.0]
+    for c in cands:
+        if not c["wav_path"] or not os.path.exists(c["wav_path"]):
+            continue
+        same = True
+        for t in probes:
+            a, b = _chunk(wav, t), _chunk(c["wav_path"], t)
+            n = min(len(a), len(b))
+            den = float(np.sqrt(np.dot(a[:n], a[:n]) * np.dot(b[:n], b[:n])))
+            if n == 0 or den == 0 or float(np.dot(a[:n], b[:n])) / den < min_corr:
+                same = False
+                break
+        if same:
+            return c["video_id"]
+    return None
+
+
 def select_queue(con, args):
     """Videos to download this run: passed metadata, approved channel, not yet downloaded.
 
@@ -99,7 +135,7 @@ def select_queue(con, args):
     across channels; --max-minutes keeps very long streams out (useful on small GPUs)."""
     sql = """SELECT v.video_id, v.channel_id FROM videos v JOIN channels c USING(channel_id)
              WHERE v.meta_status='pass' AND v.video_id NOT IN (SELECT video_id FROM downloads
-                                                              WHERE status IN ('ok','audio_deleted'))
+                                                              WHERE status IN ('ok','audio_deleted','duplicate'))
                AND v.video_id NOT IN (SELECT video_id FROM triage WHERE decision='reject')"""
     params = []
     if args.tier == "A":
@@ -184,6 +220,20 @@ def main():
             con.commit()
             failed += 1
             print("    CONVERSION FAILED; details saved in the database. Moving on.")
+            continue
+        dup = find_duplicate(con, vid, wav, dur)
+        if dup:
+            for p in (orig, wav):                      # same audio already kept: don't store it twice
+                if p and os.path.exists(p):
+                    os.remove(p)
+            con.execute("""INSERT OR REPLACE INTO downloads(video_id, downloaded_at, orig_codec, duration_s,
+                           ytdlp_version, status, error) VALUES (?,?,?,?,?,?,?)""",
+                        (vid, now(), codec, dur, ytdlp_version, "duplicate", f"same audio as {dup}"))
+            con.execute("INSERT INTO triage(video_id, reviewer, reviewed_at, decision, tier, notes)"
+                        " VALUES (?,?,?,?,?,?)", (vid, "auto", now(), "reject", "X", f"duplicate audio of {dup}"))
+            log_event(con, "video", vid, "duplicate", {"of": dup}, actor="auto")
+            con.commit()
+            print(f"    DUPLICATE: same audio as {dup} (uploaded twice). Files deleted, video rejected.")
             continue
         con.execute("""INSERT OR REPLACE INTO downloads VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
                     (vid, now(), orig, codec, sr, chans, br, dur, str(wav),
