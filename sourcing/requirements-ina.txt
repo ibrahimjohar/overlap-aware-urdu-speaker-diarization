@@ -1,0 +1,25 @@
+# Separate environment (.venv-ina) for inaSpeechSegmenter only. TensorFlow runs on the CPU
+# (no GPU TensorFlow on native Windows). s06_auto_screen.py calls it through ina_segment.py;
+# you never activate it for normal work.
+#
+# Create (from the repo root, Windows PowerShell):
+#   py -3.11 -m venv .venv-ina
+#   .\.venv-ina\Scripts\Activate.ps1
+#   python -m pip install -U pip
+#   pip install --no-cache-dir tensorflow
+#   pip install --no-cache-dir --no-deps inaSpeechSegmenter
+#   pip install --no-cache-dir -r sourcing/requirements-ina.txt
+#   deactivate
+#
+# Why --no-deps: inaSpeechSegmenter asks for tensorflow[and-cuda] and onnxruntime-gpu, which pull
+# gigabytes of NVIDIA libraries and send pip into a long backtracking loop. The plain CPU packages
+# below provide the same modules. `pip check` will then report "requires onnxruntime-gpu" - expected.
+
+pandas
+scikit-image
+pyannote.core
+matplotlib
+Pyro4
+pytextgrid
+soundfile
+onnxruntime

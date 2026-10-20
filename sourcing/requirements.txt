@@ -1,14 +1,25 @@
-# Core (Steps 1-5, 7-9a, 11-12) - CPU is enough
+# Main environment (.venv) - everything except inaSpeechSegmenter.
+# Python 3.11. Create with:   py -3.11 -m venv .venv   then activate it.
+#
+# 1) Install PyTorch FIRST from the CUDA index (on Windows, plain "pip install torch" gives a CPU-only build):
+#      pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu128
+# 2) Then the rest (the extra index stops pip from swapping in a CPU torch):
+#      pip install -r sourcing/requirements.txt --extra-index-url https://download.pytorch.org/whl/cu128
+#
+# System tools (not pip): ffmpeg + ffprobe on PATH  (Windows: winget install Gyan.FFmpeg)
+
+# Discovery, metadata, download, packaging (Steps 1-5, 7-12)
 google-api-python-client>=2.100
 isodate>=0.6
 python-dotenv>=1.0
 requests>=2.31
-yt-dlp            # keep it current: pip install -U yt-dlp   (YouTube changes often)
+yt-dlp            # update often: pip install -U yt-dlp
 soundfile>=0.12
 numpy>=1.24
-# Screening + speaker linking (Steps 6, 9b) - GPU strongly recommended
-torch
+
+# Screening + speaker linking (Steps 6, 9b) - NVIDIA GPU recommended
 openai-whisper
-inaSpeechSegmenter   # pulls in TensorFlow
-pyannote.audio       # gated models: accept terms on Hugging Face and set HF_TOKEN
-# System packages (not pip): ffmpeg + ffprobe  ->  sudo apt install ffmpeg   (or conda install -c conda-forge ffmpeg)
+pyannote.audio>=4.0   # gated models: accept terms on Hugging Face, set HF_TOKEN in .env
+
+# inaSpeechSegmenter is NOT installed here: it needs TensorFlow, which clashes with this
+# environment. It lives in .venv-ina - see requirements-ina.txt. s06 calls it automatically.
