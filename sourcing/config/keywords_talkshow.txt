@@ -1,0 +1,29 @@
+# Talk-show / current-affairs keywords. Format words only; run with --track cc AND --track all.
+# Expect: the CC track mostly returns RE-UPLOADS of TV shows (not Tier A). Check originality.
+# --- Urdu script
+ٹاک شو
+سیاسی ٹاک شو
+کرنٹ افیئرز
+حالات حاضرہ
+تجزیہ
+سیاسی تجزیہ
+خصوصی پروگرام
+سیاسی بحث
+مباحثہ
+مذاکرہ
+پینل ڈسکشن
+گرما گرم بحث
+# --- Roman Urdu
+siyasi behas
+halat e hazra
+tajzia
+garma garam behas
+# --- English
+pakistani talk show
+urdu talk show
+current affairs pakistan
+political debate pakistan
+news analysis urdu
+pakistan politics discussion
+urdu news podcast
+pakistani political podcast

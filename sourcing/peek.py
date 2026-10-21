@@ -6,6 +6,7 @@
     python peek.py passes [N]        # N random videos that passed metadata screening
     python peek.py channels [N]      # channels with the most passing videos (for vetting)
     python peek.py screening [N]     # latest audio screening results, best score first
+    python peek.py profiles [N]      # seed-channel licence profiles (from s00_seed_channels.py)
 
 Avoids PowerShell quoting problems with `python -c "..."`. Never changes the database.
 """
@@ -41,6 +42,12 @@ QUERIES = {
         SELECT video_id, stage, score, n_speakers, ROUND(overlap_ratio * 100, 1),
                ROUND(urdu_hindi_frac * 100), ROUND(music_ratio * 100)
         FROM screening ORDER BY score DESC LIMIT ?""", True),
+    "profiles": ("""
+        SELECT p.category, CAST(ROUND(p.cc_share * 100) AS INT), CAST(ROUND(p.claimed_share * 100) AS INT), CAST(ROUND(p.long_share * 100) AS INT),
+               c.vetting, c.title, p.suggestion
+        FROM channel_profile p JOIN channels c USING(channel_id)
+        WHERE p.profiled_at = (SELECT MAX(profiled_at) FROM channel_profile p2 WHERE p2.channel_id = p.channel_id)
+        ORDER BY p.known_licence != 'pd', p.cc_share - p.claimed_share DESC LIMIT ?""", True),
 }
 HEADERS = {
     "funnel": ["stage", "count"],
@@ -49,6 +56,7 @@ HEADERS = {
     "passes": ["min", "tier", "video_id", "title"],
     "channels": ["channel_id", "vetting", "passing", "cc", "title"],
     "screening": ["video_id", "stage", "score", "spk", "ovl%", "urdu%", "music%"],
+    "profiles": ["category", "cc%", "claimed%", "long%", "vetting", "channel", "suggestion"],
 }
 
 

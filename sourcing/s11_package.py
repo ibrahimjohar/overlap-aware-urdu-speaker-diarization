@@ -27,6 +27,19 @@ def sha256(path):
     return h.hexdigest()
 
 
+def release_licence(tier, api_license, known_licence):
+    """Licence under which the excerpt AUDIO may be shared."""
+    if tier == "A":
+        if api_license == "creativeCommon":
+            return "CC BY 3.0"
+        if (known_licence or "") == "pd":
+            return "public domain (US government work)"
+        return "CHECK: Tier A without CC or public-domain evidence"
+    if tier == "B":
+        return "written permission"
+    return "reference only"
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--version", required=True)
@@ -38,6 +51,8 @@ def main():
     rows = con.execute("""
         SELECT e.*, d.wav_path, s.rttm_path, s.diar_model, v.title, v.published_at, v.license,
                c.title AS channel_title,
+               (SELECT known_licence FROM channel_profile cp WHERE cp.channel_id = e.channel_id
+                  ORDER BY profiled_at DESC LIMIT 1) AS known_licence,
                (SELECT wayback_url FROM licence_evidence le WHERE le.video_id=e.video_id
                   AND le.wayback_url IS NOT NULL ORDER BY checked_at DESC LIMIT 1) AS wayback
         FROM excerpts e JOIN downloads d USING(video_id) JOIN videos v USING(video_id)
@@ -73,7 +88,8 @@ def main():
                        "channel_id": r["channel_id"], "channel_title": r["channel_title"],
                        "title": r["title"], "published_at": r["published_at"],
                        "offset_start_s": r["start_s"], "offset_end_s": r["end_s"],
-                       "api_license": r["license"], "licence_evidence": r["wayback"]},
+                       "api_license": r["license"], "licence_evidence": r["wayback"],
+                       "release_licence": release_licence(r["tier"], r["license"], r["known_licence"])},
             "machine_preannotation": {"rttm": f"rttm_machine/{ex}.rttm", "model": r["diar_model"],
                                       "n_speakers_hyp": len(names), "overlap_ratio_hyp": r["overlap_ratio_hyp"]},
             "status": {"diarization_gold": False, "transcription": False},
@@ -109,7 +125,7 @@ def main():
         for m in manifest:
             s = m["source"]
             redis = m["tier"] in ("A", "B")
-            lic = "CC BY 3.0" if m["tier"] == "A" else ("written permission" if m["tier"] == "B" else "reference only")
+            lic = s["release_licence"]
             w.writerow([m["excerpt_id"], s["video_id"], s["offset_start_s"], s["offset_end_s"], redis, lic])
     with open(out / "ATTRIBUTION.md", "w", encoding="utf-8") as f:
         f.write("# Attribution\n\nAudio excerpts in this corpus that are marked redistributable were derived "
@@ -117,8 +133,10 @@ def main():
         for m in manifest:
             if m["tier"] == "A":
                 s = m["source"]
-                f.write(f"- \"{s['title']}\" by {s['channel_title']} ({s['url']}), licensed under "
-                        f"CC BY 3.0 ({CC_BY_3}). Excerpt {s['offset_start_s']:.1f}-{s['offset_end_s']:.1f} s; "
+                terms = (f"licensed under CC BY 3.0 ({CC_BY_3})" if s["release_licence"] == "CC BY 3.0"
+                         else s["release_licence"])
+                f.write(f"- \"{s['title']}\" by {s['channel_title']} ({s['url']}), {terms}. "
+                        f"Excerpt {s['offset_start_s']:.1f}-{s['offset_end_s']:.1f} s; "
                         f"changes: excerpted, down-mixed to mono, resampled to 16 kHz.\n")
             elif m["tier"] == "B":
                 s = m["source"]

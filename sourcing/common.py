@@ -26,6 +26,7 @@ EVIDENCE_DIR = ROOT / "licence_evidence"
 EMB_DIR = ROOT / "speaker_embeddings"
 HANDOFF_DIR = ROOT / "handoff"          # packaged excerpts for the annotation stage
 LOG_DIR = ROOT / "logs"
+REPORT_DIR = ROOT / "reports"           # CSV reports (seed-channel profiles, weekly numbers)
 
 YT_API_KEY = os.environ.get("YT_API_KEY")
 HF_TOKEN = os.environ.get("HF_TOKEN")
@@ -41,7 +42,21 @@ EXCLUDE_TERMS = [                 # genre words that almost always mean music, s
     "نعت", "قوالی", "گانا", "ڈرامہ", "خطبہ", "تلاوت", "مشاعرہ",
 ]
 
-for d in (ROOT, RAW_DIR, WAV_DIR, RTTM_DIR, PROBE_DIR, EVIDENCE_DIR, EMB_DIR, HANDOFF_DIR, LOG_DIR):
+# Letters used in Urdu but not in Persian/Arabic writing. An Arabic-script title with none of these
+# is probably Persian or Arabic (e.g. "گفتگو" also means "conversation" in Persian).
+URDU_ONLY_LETTERS = set("ٹڈڑںےۓہھ")
+
+
+def arabic_script_count(text):
+    return sum(1 for ch in text if "\u0600" <= ch <= "\u06FF")
+
+
+def looks_not_urdu(text, min_letters=8):
+    """True when text is clearly Arabic-script but uses no Urdu-only letter."""
+    return arabic_script_count(text) >= min_letters and not (URDU_ONLY_LETTERS & set(text))
+
+
+for d in (ROOT, RAW_DIR, WAV_DIR, RTTM_DIR, PROBE_DIR, EVIDENCE_DIR, EMB_DIR, HANDOFF_DIR, LOG_DIR, REPORT_DIR):
     d.mkdir(parents=True, exist_ok=True)
 
 SCHEMA = """
@@ -85,6 +100,11 @@ CREATE TABLE IF NOT EXISTS excerpts(
     tier TEXT, split TEXT, created_at TEXT);
 CREATE TABLE IF NOT EXISTS events(
     ts TEXT, actor TEXT, entity TEXT, entity_id TEXT, action TEXT, detail TEXT);
+CREATE TABLE IF NOT EXISTS channel_profile(
+    channel_id TEXT, profiled_at TEXT, category TEXT, seed TEXT, known_licence TEXT,
+    n_checked INTEGER, cc_share REAL, claimed_share REAL, long_share REAL, median_min REAL,
+    urdu_title_share REAL, subscribers INTEGER, video_count INTEGER, suggestion TEXT,
+    PRIMARY KEY (channel_id, profiled_at));
 CREATE TABLE IF NOT EXISTS takedowns(
     request_id TEXT PRIMARY KEY, received_at TEXT, requester TEXT, video_id TEXT,
     action_taken TEXT, completed_at TEXT);

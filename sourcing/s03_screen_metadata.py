@@ -6,6 +6,8 @@
 Uses videos.list (1 quota unit per 50 videos). Writes meta_status = pass / reject / gone / defer
 and a preliminary licence tier:  A? (Creative Commons), A-check (CC but flagged as
 partner-claimed content), C? (standard YouTube licence).
+Arabic-script titles that use none of the Urdu-only letters (ٹ ڈ ڑ ں ے ہ ھ) are deferred as
+"possibly_not_urdu": they are usually Persian or Arabic.
 """
 import argparse
 import re
@@ -14,7 +16,7 @@ import isodate
 from googleapiclient.errors import HttpError
 
 from common import (EXCLUDE_TERMS, MAX_DURATION_S, MIN_DURATION_S, db, is_quota_error,
-                    log_event, now, youtube_client)
+                    log_event, looks_not_urdu, now, youtube_client)
 
 EXCLUDE_RE = re.compile("|".join(re.escape(t) for t in EXCLUDE_TERMS), re.IGNORECASE)
 
@@ -35,6 +37,8 @@ def decide(item):
         return dur, "defer", "very_long_manual_check"
     if EXCLUDE_RE.search(text):
         return dur, "reject", "excluded_genre_term"
+    if looks_not_urdu(sn.get("title", "")):
+        return dur, "defer", "possibly_not_urdu"      # Persian/Arabic script without Urdu letters
     return dur, "pass", ""
 
 
