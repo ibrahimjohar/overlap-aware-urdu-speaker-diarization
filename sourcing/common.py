@@ -6,40 +6,61 @@ Set these environment variables before running anything:
     YT_API_KEY         YouTube Data API v3 key (one per team member / Google Cloud project)
     HF_TOKEN           Hugging Face token (needed for gated pyannote models)
 """
+
 import json
 import os
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
+
 from dotenv import load_dotenv
 
-load_dotenv(Path(__file__).resolve().parents[1] / ".env")  # reads the repo-root .env on any OS/terminal
+load_dotenv(
+    Path(__file__).resolve().parents[1] / ".env"
+)  # reads the repo-root .env on any OS/terminal
 
 # ---------------------------------------------------------------- paths
 ROOT = Path(os.environ.get("URDU_CORPUS_ROOT", "./corpus")).resolve()
 DB_PATH = ROOT / "provenance.sqlite"
-RAW_DIR = ROOT / "audio_raw"            # untouched originals exactly as downloaded (read-only)
-WAV_DIR = ROOT / "audio_wav16k"         # full-length 16 kHz mono 16-bit PCM working copies
-RTTM_DIR = ROOT / "machine_rttm"        # machine diarization hypotheses for full videos
-PROBE_DIR = ROOT / "tmp_probes"         # temporary probe clips for stage-1 screening
+RAW_DIR = ROOT / "audio_raw"  # untouched originals exactly as downloaded (read-only)
+WAV_DIR = ROOT / "audio_wav16k"  # full-length 16 kHz mono 16-bit PCM working copies
+RTTM_DIR = ROOT / "machine_rttm"  # machine diarization hypotheses for full videos
+PROBE_DIR = ROOT / "tmp_probes"  # temporary probe clips for stage-1 screening
 EVIDENCE_DIR = ROOT / "licence_evidence"
 EMB_DIR = ROOT / "speaker_embeddings"
-HANDOFF_DIR = ROOT / "handoff"          # packaged excerpts for the annotation stage
+HANDOFF_DIR = ROOT / "handoff"  # packaged excerpts for the annotation stage
 LOG_DIR = ROOT / "logs"
-REPORT_DIR = ROOT / "reports"           # CSV reports (seed-channel profiles, weekly numbers)
+REPORT_DIR = ROOT / "reports"  # CSV reports (seed-channel profiles, weekly numbers)
 
 YT_API_KEY = os.environ.get("YT_API_KEY")
 HF_TOKEN = os.environ.get("HF_TOKEN")
 
 # ---------------------------------------------------------------- tunable thresholds
-MIN_DURATION_S = 8 * 60           # shorter videos rarely contain usable 8-15 min conversations
-MAX_DURATION_S = 4 * 60 * 60      # very long streams are mostly dead air; review manually if needed
-TARGET_SR = 16000                 # sample rate of all working audio
+MIN_DURATION_S = 8 * 60  # shorter videos rarely contain usable 8-15 min conversations
+MAX_DURATION_S = (
+    4 * 60 * 60
+)  # very long streams are mostly dead air; review manually if needed
+TARGET_SR = 16000  # sample rate of all working audio
 
-EXCLUDE_TERMS = [                 # genre words that almost always mean music, scripted or monologue content
-    "naat", "qawwali", "song", "lyrics", "drama episode", "full movie", "audiobook",
-    "khutba", "bayan", "tilawat", "mushaira",
-    "نعت", "قوالی", "گانا", "ڈرامہ", "خطبہ", "تلاوت", "مشاعرہ",
+EXCLUDE_TERMS = [  # genre words that almost always mean music, scripted or monologue content
+    "naat",
+    "qawwali",
+    "song",
+    "lyrics",
+    "drama episode",
+    "full movie",
+    "audiobook",
+    "khutba",
+    "bayan",
+    "tilawat",
+    "mushaira",
+    "نعت",
+    "قوالی",
+    "گانا",
+    "ڈرامہ",
+    "خطبہ",
+    "تلاوت",
+    "مشاعرہ",
 ]
 
 # Letters used in Urdu but not in Persian/Arabic writing. An Arabic-script title with none of these
@@ -48,15 +69,28 @@ URDU_ONLY_LETTERS = set("ٹڈڑںےۓہھ")
 
 
 def arabic_script_count(text):
-    return sum(1 for ch in text if "\u0600" <= ch <= "\u06FF")
+    return sum(1 for ch in text if "\u0600" <= ch <= "\u06ff")
 
 
 def looks_not_urdu(text, min_letters=8):
     """True when text is clearly Arabic-script but uses no Urdu-only letter."""
-    return arabic_script_count(text) >= min_letters and not (URDU_ONLY_LETTERS & set(text))
+    return arabic_script_count(text) >= min_letters and not (
+        URDU_ONLY_LETTERS & set(text)
+    )
 
 
-for d in (ROOT, RAW_DIR, WAV_DIR, RTTM_DIR, PROBE_DIR, EVIDENCE_DIR, EMB_DIR, HANDOFF_DIR, LOG_DIR, REPORT_DIR):
+for d in (
+    ROOT,
+    RAW_DIR,
+    WAV_DIR,
+    RTTM_DIR,
+    PROBE_DIR,
+    EVIDENCE_DIR,
+    EMB_DIR,
+    HANDOFF_DIR,
+    LOG_DIR,
+    REPORT_DIR,
+):
     d.mkdir(parents=True, exist_ok=True)
 
 SCHEMA = """
@@ -113,7 +147,7 @@ CREATE TABLE IF NOT EXISTS takedowns(
 
 def now() -> str:
     """UTC timestamp in ISO-8601, used for every *_at column."""
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def db() -> sqlite3.Connection:
@@ -128,8 +162,10 @@ def log_event(con, entity, entity_id, action, detail="", actor=None):
     actor = actor or os.environ.get("USER", "unknown")
     if not isinstance(detail, str):
         detail = json.dumps(detail, ensure_ascii=False)
-    con.execute("INSERT INTO events VALUES (?,?,?,?,?,?)",
-                (now(), actor, entity, entity_id, action, detail))
+    con.execute(
+        "INSERT INTO events VALUES (?,?,?,?,?,?)",
+        (now(), actor, entity, entity_id, action, detail),
+    )
 
 
 def youtube_client():
@@ -137,11 +173,28 @@ def youtube_client():
     if not YT_API_KEY:
         raise SystemExit("Set YT_API_KEY first (see Section 5.3 of the protocol).")
     from googleapiclient.discovery import build
+
     return build("youtube", "v3", developerKey=YT_API_KEY, cache_discovery=False)
 
 
 def is_quota_error(err) -> bool:
     return "quotaExceeded" in str(err) or "dailyLimitExceeded" in str(err)
+
+
+def api_error_text(err) -> str:
+    """Short, key-free description of a Google API error (the raw message contains the URL with the key)."""
+    import re
+
+    status = getattr(getattr(err, "resp", None), "status", "?")
+    reason = ""
+    try:
+        details = err.error_details if isinstance(err.error_details, list) else []
+        reason = details[0].get("reason", "") if details else ""
+    except Exception:
+        pass
+    msg = getattr(err, "reason", "") or ""
+    text = f"HTTP {status} {reason}: {msg}".strip()
+    return re.sub(r"key=[^&\s]+", "key=<hidden>", text)
 
 
 def read_rttm(path):
@@ -158,8 +211,10 @@ def read_rttm(path):
 
 def write_rttm(path, uri, segs):
     with open(path, "w", encoding="utf-8") as f:
-        for s, e, spk in sorted(segs):
-            f.write(f"SPEAKER {uri} 1 {s:.3f} {e - s:.3f} <NA> <NA> {spk} <NA> <NA>\n")
+        f.writelines(
+            f"SPEAKER {uri} 1 {s:.3f} {e - s:.3f} <NA> <NA> {spk} <NA> <NA>\n"
+            for s, e, spk in sorted(segs)
+        )
 
 
 def speech_stats(segs):
@@ -167,7 +222,7 @@ def speech_stats(segs):
     events = []
     for s, e, _ in segs:
         events += [(s, 1), (e, -1)]
-    events.sort()                    # at equal times, ends (-1) sort before starts (+1)
+    events.sort()  # at equal times, ends (-1) sort before starts (+1)
     active, prev, speech, overlap, max_c = 0, None, 0.0, 0.0, 0
     for t, d in events:
         if prev is not None and active > 0:
