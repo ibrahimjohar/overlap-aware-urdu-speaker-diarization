@@ -1,0 +1,19 @@
+Subject: Request for research permission - archival PTV programmes (FAST-NUCES final-year project)
+
+Respected Sir/Madam,
+
+We are final-year BS Artificial Intelligence students at FAST-NUCES Karachi, working on a
+non-commercial research project on speaker diarization and speaker-attributed transcription
+for conversational Urdu, supervised by Dr. Muhammad Yaseen Khan and Dr. Muhammad Rafi.
+
+We would like to request written permission to use PTV programmes available on PTV's official
+YouTube channels for research, and to redistribute short audio excerpts with our annotations
+to other researchers under a non-commercial research licence, with full attribution to PTV.
+Without permission we will release only video IDs, timestamps and our own annotations.
+
+We will remove any programme on request at any time. Please let us know the conditions you
+would require or the right contact for this request.
+
+Regards,
+Ibrahim Johar Farooqi, Areeba Hasnain, Syed Ukkashah Ahmed
+FAST-NUCES Karachi
